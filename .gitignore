@@ -1,4 +1,9 @@
+.vscode
+
 *.o
 *.obj
 *.so
 *.dll
+*.exe
+
+config.mk

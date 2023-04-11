@@ -1,32 +1,41 @@
-# $Id: Makefile,v 1.7 2007/10/11 00:02:56 carregal Exp $
+include ./config.mk
 
-CONFIG= ./config
 
-include $(CONFIG)
+MD5_C = md5
+MD5_C_TEST = test_md5
 
-COMPAT52_OBJS= src/compat-5.2.o
+SOURCES= $(MD5_C) api
+DLL_NAME = md5.dll
 
-MD5_OBJS= src/md5.o src/md5lib.o
-MD5_LUAS= src/md5.lua
-MD5_LIBNAME = core.so
 
-DES56_OBJS= src/des56.o src/ldes56.o
-DES56_LIBNAME= des56.so
+all: sources dll
+	@echo done
 
-all: src/$(MD5_LIBNAME) src/$(DES56_LIBNAME)
+$(SOURCES) :
+	@echo building "$@" source file...
+	@echo -------------
+	$(COMPILER) -o build/$@.o -c src/$@.c $(CFLAGS)
+	@echo =============
 
-src/$(MD5_LIBNAME) : $(MD5_OBJS) $(COMPAT52_OBJS)
-	$(CC) $(CFLAGS) $(LIB_OPTION) -o src/$(MD5_LIBNAME) $(MD5_OBJS) $(COMPAT52_OBJS)
+dll: 
+	@echo making "$(DLL_NAME)"...
+	@echo -------------
+	$(COMPILER) $(LINK_OPTIONS) -o build/$(DLL_NAME) $(SOURCES:%=build/%.o) $(LUA_DLL)
+	@echo =============
 
-src/$(DES56_LIBNAME) : $(DES56_OBJS) $(COMPAT52_OBJS)
-	$(CC) $(CFLAGS) $(LIB_OPTION) -o src/$(DES56_LIBNAME) $(DES56_OBJS) $(COMPAT52_OBJS)
+make_c_test:
+	@echo compiling C test for MD5...
+	@echo -------------
+	$(COMPILER) -o build/$(MD5_C).o  		-c src/$(MD5_C).c			$(CFLAGS)
+	$(COMPILER) -o build/$(MD5_C_TEST).o 	-c tests/$(MD5_C_TEST).c  	$(CFLAGS_TEST)
+	$(COMPILER) -o build/$(MD5_C_TEST).exe     build/$(MD5_C_TEST).o  	build/$(MD5_C).o 
+	@echo =============
 
-install: src/$(MD5_LIBNAME) src/$(DES56_LIBNAME)
-	cp src/$(DES56_LIBNAME) $(LUA_LIBDIR)
-	mkdir -p $(LUA_LIBDIR)/md5
-	cp src/$(MD5_LIBNAME) $(LUA_LIBDIR)/md5/
-	mkdir -p $(LUA_DIR)
-	cp $(MD5_LUAS) $(LUA_DIR)
+test_c: make_c_test
+	@echo executing "build/$(MD5_C_TEST).exe"...
+	@echo -------------
+	@./build/$(MD5_C_TEST).exe
+	@echo =============
 
 clean:
-	rm -f $(MD5_OBJS) src/$(MD5_LIBNAME) $(DES56_OBJS) src/$(DES56_LIBNAME) $(COMPAT52_OBJS)
+	del -f $(MD5_OBJS) build/$(MD5_DLL)

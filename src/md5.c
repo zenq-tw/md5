@@ -1,7 +1,12 @@
 /**
-*  $Id: md5.c,v 1.2 2008/03/24 20:59:12 mascarenhas Exp $
-*  Hash function MD5
-*  @author  Marcela Ozorio Suarez, Roberto I.
+*    $Id: md5.c,v 1.2 2008/03/24 20:59:12 mascarenhas Exp $
+*    Hash function MD5
+*    @author    Marcela Ozorio Suarez, Roberto I.
+* --------------------------------------------------------------
+*    Modified by ZenQ
+*    Changes:
+*       - fixes for iterative checksum calculations (now it works)
+*       - refactoring
 */
 
 
@@ -15,248 +20,363 @@
 
 #define WORD 32
 #define MASK 0xFFFFFFFF
+#define UNIQUENESS_BYTE '\200'
 
 
 /**
-*  md5 hash function.
-*  @param message: aribtary string.
-*  @param len: message length.
-*  @param output: buffer to receive the hash value. Its size must be
-*  (at least) HASHSIZE.
+* md5 hash function.
+* @param message: aribtary string.
+* @param len: message length.
+* @param output: buffer to receive the hash value. Its size must be (at least) HASHSIZE.
 */
-void md5 (const char *message, size_t len, char output[HASHSIZE]);
+void md5_calculate (const char *message, size_t len, char output[HASH_SIZE]);
 
 /**
-*  init a new md5 calculate context
-*  @param m a uninitialized md5_t type context
+* init a new md5 calculate context
+* @param m a uninitialized md5_t type context
 */
-void md5_init (md5_t *m);
+void md5_ctx_init (md5_ctx *m);
 
 /**
-*  update message to md5 context
-*  @param m a initialized md5_t type context
-*  @param message aribtary string
-*  @param len message length
-*  @return true if update completed, means len is not the multiples of 64.
-*          false if you can continue update.
+* update message to md5 context
+* @param m a initialized md5_t type context
+* @param message aribtary string
+* @param len message length
 */
-int  md5_update (md5_t *m, const char *message, size_t len);
+void md5_ctx_update (md5_ctx *m, const char *message, size_t len);
 
 /**
- *  finish md5 calculate.
- *  @param m a md5_type context which previous md5_update on it return true.
- *  @param output buffer to receive the hash value. its size must be
- *  (at least) HASHSIZE.
- */
-void md5_finish (md5_t *m, char output[HASHSIZE]);
+* finish md5 calculate.
+* @param m a md5_type context which previous md5_update on it return true.
+* @param output buffer to receive the hash value. its size must be
+* (at least) HASHSIZE.
+*/
+void md5_ctx_finish (md5_ctx *m, char output[HASH_SIZE]);
 
 /*
-** Realiza a rotacao no sentido horario dos bits da variavel 'D' do tipo WORD32.
-** Os bits sao deslocados de 'num' posicoes
+** Performs a clockwise rotation of the bits of variable 'D' of type WORD32.
+** Bits are shifted by 'num' positions
 */
-#define rotate(D, num)  (D<<num) | (D>>(WORD-num))
+#define rotate(D, num)    (D<<num) | (D>>(WORD-num))
 
-/*Macros que definem operacoes relizadas pelo algoritmo  md5 */
+/*Macros that define operations performed by the md5 algorithm */
 #define F(x, y, z) (((x) & (y)) | ((~(x)) & (z)))
 #define G(x, y, z) (((x) & (z)) | ((y) & (~(z))))
 #define H(x, y, z) ((x) ^ (y) ^ (z))
 #define I(x, y, z) ((y) ^ ((x) | (~(z))))
 
 
-/*vetor de numeros utilizados pelo algoritmo md5 para embaralhar bits */
-static const WORD32 T[64]={
-                     0xd76aa478, 0xe8c7b756, 0x242070db, 0xc1bdceee,
-                     0xf57c0faf, 0x4787c62a, 0xa8304613, 0xfd469501,
-                     0x698098d8, 0x8b44f7af, 0xffff5bb1, 0x895cd7be,
-                     0x6b901122, 0xfd987193, 0xa679438e, 0x49b40821,
-                     0xf61e2562, 0xc040b340, 0x265e5a51, 0xe9b6c7aa,
-                     0xd62f105d, 0x02441453, 0xd8a1e681, 0xe7d3fbc8,
-                     0x21e1cde6, 0xc33707d6, 0xf4d50d87, 0x455a14ed,
-                     0xa9e3e905, 0xfcefa3f8, 0x676f02d9, 0x8d2a4c8a,
-                     0xfffa3942, 0x8771f681, 0x6d9d6122, 0xfde5380c,
-                     0xa4beea44, 0x4bdecfa9, 0xf6bb4b60, 0xbebfbc70,
-                     0x289b7ec6, 0xeaa127fa, 0xd4ef3085, 0x04881d05,
-                     0xd9d4d039, 0xe6db99e5, 0x1fa27cf8, 0xc4ac5665,
-                     0xf4292244, 0x432aff97, 0xab9423a7, 0xfc93a039,
-                     0x655b59c3, 0x8f0ccc92, 0xffeff47d, 0x85845dd1,
-                     0x6fa87e4f, 0xfe2ce6e0, 0xa3014314, 0x4e0811a1,
-                     0xf7537e82, 0xbd3af235, 0x2ad7d2bb, 0xeb86d391
+/*vector of numbers used by the md5 algorithm to shuffle bits */
+static const UWORD32 T[64]={
+    0xd76aa478, 0xe8c7b756, 0x242070db, 0xc1bdceee,
+    0xf57c0faf, 0x4787c62a, 0xa8304613, 0xfd469501,
+    0x698098d8, 0x8b44f7af, 0xffff5bb1, 0x895cd7be,
+    0x6b901122, 0xfd987193, 0xa679438e, 0x49b40821,
+    0xf61e2562, 0xc040b340, 0x265e5a51, 0xe9b6c7aa,
+    0xd62f105d, 0x02441453, 0xd8a1e681, 0xe7d3fbc8,
+    0x21e1cde6, 0xc33707d6, 0xf4d50d87, 0x455a14ed,
+    0xa9e3e905, 0xfcefa3f8, 0x676f02d9, 0x8d2a4c8a,
+    0xfffa3942, 0x8771f681, 0x6d9d6122, 0xfde5380c,
+    0xa4beea44, 0x4bdecfa9, 0xf6bb4b60, 0xbebfbc70,
+    0x289b7ec6, 0xeaa127fa, 0xd4ef3085, 0x04881d05,
+    0xd9d4d039, 0xe6db99e5, 0x1fa27cf8, 0xc4ac5665,
+    0xf4292244, 0x432aff97, 0xab9423a7, 0xfc93a039,
+    0x655b59c3, 0x8f0ccc92, 0xffeff47d, 0x85845dd1,
+    0x6fa87e4f, 0xfe2ce6e0, 0xa3014314, 0x4e0811a1,
+    0xf7537e82, 0xbd3af235, 0x2ad7d2bb, 0xeb86d391
 };
 
 
-static void word32tobytes (const WORD32 *input, char *output) {
-  int j = 0;
-  while (j<4*4) {
-    WORD32 v = *input++;
-    output[j++] = (char)(v & 0xff); v >>= 8;
-    output[j++] = (char)(v & 0xff); v >>= 8;
-    output[j++] = (char)(v & 0xff); v >>= 8;
-    output[j++] = (char)(v & 0xff);
-  }
+static void _word32tobytes (const UWORD32 *input, char *output) {
+    int j = 0;
+    while (j<4*4) {
+        UWORD32 v = *input++;
+        output[j++] = (char)(v & 0xff); v >>= 8;
+        output[j++] = (char)(v & 0xff); v >>= 8;
+        output[j++] = (char)(v & 0xff); v >>= 8;
+        output[j++] = (char)(v & 0xff);
+    }
 }
 
 
-static void inic_digest(WORD32 *d) {
+static void _init_digest(UWORD32 *d) {
   d[0] = 0x67452301;
   d[1] = 0xEFCDAB89;
   d[2] = 0x98BADCFE;
   d[3] = 0x10325476;
 }
 
-
-/*funcao que implemeta os quatro passos principais do algoritmo MD5 */
-static void digest(const WORD32 *m, WORD32 *d) {
-  int j;
-  /*MD5 PASSO1 */
-  for (j=0; j<4*4; j+=4) {
-    d[0] = d[0]+ F(d[1], d[2], d[3])+ m[j] + T[j];       d[0]=rotate(d[0], 7);
-    d[0]+=d[1];
-    d[3] = d[3]+ F(d[0], d[1], d[2])+ m[(j)+1] + T[j+1]; d[3]=rotate(d[3], 12);
-    d[3]+=d[0];
-    d[2] = d[2]+ F(d[3], d[0], d[1])+ m[(j)+2] + T[j+2]; d[2]=rotate(d[2], 17);
-    d[2]+=d[3];
-    d[1] = d[1]+ F(d[2], d[3], d[0])+ m[(j)+3] + T[j+3]; d[1]=rotate(d[1], 22);
-    d[1]+=d[2];
-  }
-  /*MD5 PASSO2 */
-  for (j=0; j<4*4; j+=4) {
-    d[0] = d[0]+ G(d[1], d[2], d[3])+ m[(5*j+1)&0x0f] + T[(j-1)+17];
-    d[0] = rotate(d[0],5);
-    d[0]+=d[1];
-    d[3] = d[3]+ G(d[0], d[1], d[2])+ m[((5*(j+1)+1)&0x0f)] + T[(j+0)+17];
-    d[3] = rotate(d[3], 9);
-    d[3]+=d[0];
-    d[2] = d[2]+ G(d[3], d[0], d[1])+ m[((5*(j+2)+1)&0x0f)] + T[(j+1)+17];
-    d[2] = rotate(d[2], 14);
-    d[2]+=d[3];
-    d[1] = d[1]+ G(d[2], d[3], d[0])+ m[((5*(j+3)+1)&0x0f)] + T[(j+2)+17];
-    d[1] = rotate(d[1], 20);
-    d[1]+=d[2];
-  }
-  /*MD5 PASSO3 */
-  for (j=0; j<4*4; j+=4) {
-    d[0] = d[0]+ H(d[1], d[2], d[3])+ m[(3*j+5)&0x0f] + T[(j-1)+33];
-    d[0] = rotate(d[0], 4);
-    d[0]+=d[1];
-    d[3] = d[3]+ H(d[0], d[1], d[2])+ m[(3*(j+1)+5)&0x0f] + T[(j+0)+33];
-    d[3] = rotate(d[3], 11);
-    d[3]+=d[0];
-    d[2] = d[2]+ H(d[3], d[0], d[1])+ m[(3*(j+2)+5)&0x0f] + T[(j+1)+33];
-    d[2] = rotate(d[2], 16);
-    d[2]+=d[3];
-    d[1] = d[1]+ H(d[2], d[3], d[0])+ m[(3*(j+3)+5)&0x0f] + T[(j+2)+33];
-    d[1] = rotate(d[1], 23);
-    d[1]+=d[2];
-  }
-  /*MD5 PASSO4 */
-  for (j=0; j<4*4; j+=4) {
-    d[0] = d[0]+ I(d[1], d[2], d[3])+ m[(7*j)&0x0f] + T[(j-1)+49];
-    d[0] = rotate(d[0], 6);
-    d[0]+=d[1];
-    d[3] = d[3]+ I(d[0], d[1], d[2])+ m[(7*(j+1))&0x0f] + T[(j+0)+49];
-    d[3] = rotate(d[3], 10);
-    d[3]+=d[0];
-    d[2] = d[2]+ I(d[3], d[0], d[1])+ m[(7*(j+2))&0x0f] + T[(j+1)+49];
-    d[2] = rotate(d[2], 15);
-    d[2]+=d[3];
-    d[1] = d[1]+ I(d[2], d[3], d[0])+ m[(7*(j+3))&0x0f] + T[(j+2)+49];
-    d[1] = rotate(d[1], 21);
-    d[1]+=d[2];
-  }
+/*function that implements the four main steps of the MD5 algorithm */
+static inline void _calculate_digest(const UWORD32 *m, UWORD32 *d) {
+    int j;
+    /*MD5 STEP1 */
+    for (j=0; j<4*4; j+=4) {
+        d[0] = d[0]+ F(d[1], d[2], d[3])+ m[j] + T[j];                          d[0]=rotate(d[0], 7);
+        d[0]+= d[1];
+        d[3] = d[3]+ F(d[0], d[1], d[2])+ m[(j)+1] + T[j+1];                    d[3]=rotate(d[3], 12);
+        d[3]+= d[0];
+        d[2] = d[2]+ F(d[3], d[0], d[1])+ m[(j)+2] + T[j+2];                    d[2]=rotate(d[2], 17);
+        d[2]+= d[3];
+        d[1] = d[1]+ F(d[2], d[3], d[0])+ m[(j)+3] + T[j+3];                    d[1]=rotate(d[1], 22);
+        d[1]+= d[2];
+    }
+    /*MD5 STEP2 */
+    for (j=0; j<4*4; j+=4) {
+        d[0] = d[0]+ G(d[1], d[2], d[3])+ m[(5*j+1)&0x0f] + T[(j-1)+17];        d[0] = rotate(d[0],5);
+        d[0]+= d[1];
+        d[3] = d[3]+ G(d[0], d[1], d[2])+ m[((5*(j+1)+1)&0x0f)] + T[(j+0)+17];  d[3] = rotate(d[3], 9);
+        d[3]+= d[0];
+        d[2] = d[2]+ G(d[3], d[0], d[1])+ m[((5*(j+2)+1)&0x0f)] + T[(j+1)+17];  d[2] = rotate(d[2], 14);
+        d[2]+= d[3];
+        d[1] = d[1]+ G(d[2], d[3], d[0])+ m[((5*(j+3)+1)&0x0f)] + T[(j+2)+17];  d[1] = rotate(d[1], 20);
+        d[1]+= d[2];
+    }
+    /*MD5 STEP3 */
+    for (j=0; j<4*4; j+=4) {
+        d[0] = d[0]+ H(d[1], d[2], d[3])+ m[(3*j+5)&0x0f] + T[(j-1)+33];        d[0] = rotate(d[0], 4);
+        d[0]+= d[1];
+        d[3] = d[3]+ H(d[0], d[1], d[2])+ m[(3*(j+1)+5)&0x0f] + T[(j+0)+33];    d[3] = rotate(d[3], 11);
+        d[3]+= d[0];
+        d[2] = d[2]+ H(d[3], d[0], d[1])+ m[(3*(j+2)+5)&0x0f] + T[(j+1)+33];    d[2] = rotate(d[2], 16);
+        d[2]+= d[3];
+        d[1] = d[1]+ H(d[2], d[3], d[0])+ m[(3*(j+3)+5)&0x0f] + T[(j+2)+33];    d[1] = rotate(d[1], 23);
+        d[1]+= d[2];
+    }
+    /*MD5 STEP4 */
+    for (j=0; j<4*4; j+=4) {
+        d[0] = d[0]+ I(d[1], d[2], d[3])+ m[(7*j)&0x0f] + T[(j-1)+49];          d[0] = rotate(d[0], 6);
+        d[0]+= d[1];
+        d[3] = d[3]+ I(d[0], d[1], d[2])+ m[(7*(j+1))&0x0f] + T[(j+0)+49];      d[3] = rotate(d[3], 10);
+        d[3]+= d[0];
+        d[2] = d[2]+ I(d[3], d[0], d[1])+ m[(7*(j+2))&0x0f] + T[(j+1)+49];      d[2] = rotate(d[2], 15);
+        d[2]+= d[3];
+        d[1] = d[1]+ I(d[2], d[3], d[0])+ m[(7*(j+3))&0x0f] + T[(j+2)+49];      d[1] = rotate(d[1], 21);
+        d[1]+= d[2];
+    }
 }
 
 
-static void bytestoword32 (WORD32 *x, const char *pt) {
-  int i;
-  for (i=0; i<16; i++) {
-    int j=i*4;
-    x[i] = (((WORD32)(unsigned char)pt[j+3] << 8 |
-           (WORD32)(unsigned char)pt[j+2]) << 8 |
-           (WORD32)(unsigned char)pt[j+1]) << 8 |
-           (WORD32)(unsigned char)pt[j];
-  }
+static inline void _bytestoword32 (UWORD32 *x, const char *pt) {
+    int processed_bytes, j;
+    for (processed_bytes=0; processed_bytes<16; processed_bytes++) {
+        j=processed_bytes*4;
+        x[processed_bytes] = (((UWORD32)(unsigned char)pt[j+3]  << 8 |
+                 (UWORD32)(unsigned char)pt[j+2]) << 8 |
+                 (UWORD32)(unsigned char)pt[j+1]) << 8 |
+                 (UWORD32)(unsigned char)pt[j];
+    }
 
 }
 
 
-static void put_length(WORD32 *x, long len) {
-  /* in bits! */
-  x[14] = (WORD32)((len<<3) & MASK);
-  x[15] = (WORD32)(len>>(32-3) & 0x7);
+static inline void _put_length(UWORD32 *hash, long len) {
+    /* in bits! */
+    hash[14] = (UWORD32)((len<<3)     & MASK);
+    hash[15] = (UWORD32)( len>>(32-3) & 0x7 );
 }
 
 
-/*
-** returned status:
-*  0 - normal message (full 64 bytes)
-*  1 - enough room for 0x80, but not for message length (two 4-byte words)
-*  2 - enough room for 0x80 plus message length (at least 9 bytes free)
-*/
-static int converte (WORD32 *x, const char *pt, int num, int old_status) {
-  int new_status = 0;
-  char buff[64];
-  if (num<64) {
-    memcpy(buff, pt, num);  /* to avoid changing original string */
-    memset(buff+num, 0, 64-num);
-    if (old_status == 0)
-      buff[num] = '\200';
-    new_status = 1;
-    pt = buff;
-  }
-  bytestoword32(x, pt);
-  if (num <= (64 - 9))
-    new_status = 2;
-  return new_status;
+
+/*/// ===============================================================================================================================
+                                                SECONDARY FUNCTIONS 
+/*/// ===============================================================================================================================
+///// *it is better to read public functions first) 
+
+#define MIN(a,b) (((a)<(b))?(a):(b))
+#define MAX(a,b) (((a)>(b))?(a):(b))
+
+#define MAX_DATA_IN_CHUNK_TO_BE_ADD_UNIQBYTE_AND_PUT_LEN_IN_HASH   (CHUNK_SIZE - 9)
+#define LENGTH_WILL_FIT(buffer) ((buffer->size - MAX_DATA_IN_CHUNK_TO_BE_ADD_UNIQBYTE_AND_PUT_LEN_IN_HASH) <= 0)
+#define LENGTH_WILL_NOT_FIT(buffer) ((buffer->size - MAX_DATA_IN_CHUNK_TO_BE_ADD_UNIQBYTE_AND_PUT_LEN_IN_HASH) > 0)
+
+#define COPY_DIGEST(src, dest)  \
+    dest[0]=src[0];             \
+    dest[1]=src[1];             \
+    dest[2]=src[2];             \
+    dest[3]=src[3];
+
+
+#define COMBINE_DIGEST(curr, old)   \
+    curr[0]+=old[0];                \
+    curr[1]+=old[1];                \
+    curr[2]+=old[2];                \
+    curr[3]+=old[3];
+
+
+#define _add_byte(buffer) (buffer->array[buffer->size] = UNIQUENESS_BYTE)
+#define _add_byte2(buffer) (buffer.array[buffer.size] = UNIQUENESS_BYTE)
+
+#define _update_hash_from_msg(hash, msg) _bytestoword32(hash, msg);
+#define _update_hash_from_buffer(hash, buffer) _bytestoword32(hash, buffer->array);
+#define _update_hash_from_buffer2(hash, buffer) _bytestoword32(hash, buffer.array);
+
+
+static inline void _update_hash_from_empty(UWORD32 *hash){
+    char empty_chunk[64] = {0};             
+    _bytestoword32(hash, empty_chunk);
 }
 
 
-void md5 (const char *message, size_t len, char output[HASHSIZE]) {
-  WORD32 d[4];
-  int status = 0;
-  long i = 0;
-  inic_digest(d);
-  while (status != 2) {
-    WORD32 d_old[4];
-    WORD32 wbuff[16];
-    int numbytes = (len-i >= 64) ? 64 : len-i;
-    /*salva os valores do vetor digest*/
-    d_old[0]=d[0]; d_old[1]=d[1]; d_old[2]=d[2]; d_old[3]=d[3];
-    status = converte(wbuff, message+i, numbytes, status);
-    if (status == 2) put_length(wbuff, len);
-    digest(wbuff, d);
-    d[0]+=d_old[0]; d[1]+=d_old[1]; d[2]+=d_old[2]; d[3]+=d_old[3];
-    i += numbytes;
-  }
-  word32tobytes(d, output);
+static inline void _fill_buffer(TBuffer *buffer, const char *msg, int bytes_to_read) {
+    memcpy(buffer->array + buffer->size, msg, bytes_to_read);               
+    buffer->size += bytes_to_read;                                          
+    memset(buffer->array + buffer->size, 0, CHUNK_SIZE - bytes_to_read);
 }
 
-void md5_init(md5_t *m) {
-    inic_digest(m->d);
+static inline void _clear_buffer(TBuffer *buffer){
+    memset(buffer->array, 0, CHUNK_SIZE);
+    buffer->size = 0;
+}
+
+
+static inline void _update_digest(UWORD32 *hash, UWORD32 *digest, UWORD32 *prev_digest){
+    COPY_DIGEST(digest, prev_digest);
+    _calculate_digest(hash, digest);
+    COMBINE_DIGEST(digest, prev_digest);
+}
+
+
+static inline void _finalize_1__with_overflow(TBuffer *buffer, UWORD32 *hash, UWORD32 *digest, UWORD32 *prev_digest, size_t final_len){
+    _add_byte(buffer);                                                             
+    _update_hash_from_buffer(hash, buffer);                                        
+    _update_digest(hash, digest, prev_digest);                                     
+                                                                                   
+    _update_hash_from_empty(hash);                                                 
+    _put_length(hash, final_len);                                                  
+    _update_digest(hash, digest, prev_digest);
+}
+
+static inline void _finalize_2__inplace(TBuffer *buffer, UWORD32 *hash, UWORD32 *digest, UWORD32 *prev_digest, size_t final_len){
+    _add_byte(buffer);                                                       
+    _update_hash_from_buffer(hash, buffer);                                  
+    _put_length(hash, final_len);                                            
+    _update_digest(hash, digest, prev_digest);
+}
+
+
+
+static inline void _finalize (TBuffer *buf, UWORD32 *hash, const char *msg, int bytes_to_read, UWORD32 *d, UWORD32 *prev_d, size_t len) {
+    _fill_buffer(buf, msg, bytes_to_read);
+
+    if (LENGTH_WILL_NOT_FIT(buf))
+        _finalize_1__with_overflow(buf, hash, d, prev_d, len);
+    else                         
+        _finalize_2__inplace(buf, hash, d, prev_d, len);
+}
+
+
+static inline TCalculationState _try_to_finalize (TBuffer *buf, UWORD32 *hash, const char *msg, int bytes_to_read, UWORD32 *d, UWORD32 *prev_d, size_t len) {
+    _fill_buffer(buf, msg, bytes_to_read);
+
+    if (LENGTH_WILL_FIT(buf)){
+        _finalize_2__inplace(buf, hash, d, prev_d, len);
+        return STATE_COMPLETED;
+    }
+
+    if (buf->size < CHUNK_SIZE){
+        _finalize_1__with_overflow(buf, hash, d, prev_d, len);
+        return STATE_COMPLETED;
+    }
+
+    _update_hash_from_buffer(hash, buf);
+    _update_digest(hash, d, prev_d);
+    _clear_buffer(buf);
+
+    return STATE_NEW_COMPLETED_DIGEST;
+}
+
+
+static inline void _read_full_chunk(UWORD32 *hash, const char *msg_ptr, UWORD32 *digest, UWORD32 *prev_digest){
+    _update_hash_from_msg(hash, msg_ptr);
+    _update_digest(hash, digest, prev_digest);
+}
+
+
+
+/*/// ===============================================================================================================================
+                                                        PUBLIC FUNCTIONS
+/*/// ===============================================================================================================================
+
+
+
+
+void md5_calculate (const char *msg, size_t len, char output[HASH_SIZE]) {
+    UWORD32 digest[4], prev_digest[4], hash[HASH_SIZE]; _init_digest(digest);
+    size_t processed_bytes = 0;
+    int bytes_to_read;
+
+    bytes_to_read = MIN(len, CHUNK_SIZE);
+    while (bytes_to_read == CHUNK_SIZE) {
+        _read_full_chunk(hash, msg + processed_bytes, digest, prev_digest);
+        
+        processed_bytes += bytes_to_read;
+        bytes_to_read = MIN(len - processed_bytes, CHUNK_SIZE);
+    }
+
+    TBuffer buffer, *buffer_ptr = &buffer; buffer.size = 0;
+    _finalize(buffer_ptr, hash, msg + processed_bytes, bytes_to_read, digest, prev_digest, len);
+
+    _word32tobytes(digest, output);
+}
+
+
+
+///  Iterative calculations with context
+
+
+
+void md5_ctx_init(md5_ctx *m) {
+    _init_digest(m->current_digest);
+    _init_digest(m->completed_digest);
+    
     m->len = 0;
+    memset(m->buffer.array, 0, 64);
+    m->buffer.size = 0;
+
+    // set default digest (just in case update won't be called)
+    UWORD32 dummy_hash[HASH_SIZE] = {0};
+
+    _add_byte2(m->buffer);
+    _update_hash_from_buffer2(dummy_hash, m->buffer);
+    _put_length(dummy_hash, 0); 
+    _calculate_digest(dummy_hash, m->current_digest);
+    
+    COMBINE_DIGEST(m->current_digest, m->completed_digest);
 }
 
-int md5_update(md5_t *m, const char *message, size_t len) {
-  WORD32 *d = m->d;
-  size_t addlen = m->len;
-  int status = 0, i = 0;
-  while (status != 2) {
-    WORD32 d_old[4];
-    WORD32 wbuff[16];
-    int numbytes = (len-i >= 64) ? 64 : len-i;
-    if (status != 1 && numbytes == 0 && len != 0)
-      break;
-    /*salva os valores do vetor digest*/
-    d_old[0]=d[0]; d_old[1]=d[1]; d_old[2]=d[2]; d_old[3]=d[3];
-    status = converte(wbuff, message+i, numbytes, status);
-    if (status == 2) put_length(wbuff, addlen+len);
-    digest(wbuff, d);
-    d[0]+=d_old[0]; d[1]+=d_old[1]; d[2]+=d_old[2]; d[3]+=d_old[3];
-    i += numbytes;
-  }
-  m->len += len;
-  return status == 2;
+
+void md5_ctx_finish (md5_ctx *m, char output[HASH_SIZE]) {
+    _word32tobytes(m->current_digest, output);
 }
 
-void md5_finish (md5_t *m, char output[HASHSIZE]) {
-    word32tobytes(m->d, output);
+
+
+void md5_ctx_update(md5_ctx *m, const char *msg, size_t len) {
+    TCalculationState current_state = STATE_NOT_READY;
+
+    UWORD32 digest[4], prev_digest[4], hash[HASH_SIZE];
+    COPY_DIGEST(m->completed_digest, digest);  
+
+    int bytes_to_read = MIN(CHUNK_SIZE - m->buffer.size, len);
+    size_t processed_bytes = 0, final_len = m->len + len;
+    TBuffer *buffer_ptr = &m->buffer;
+
+
+    while (current_state != STATE_COMPLETED) {
+
+        if (bytes_to_read == CHUNK_SIZE) {
+            _read_full_chunk(hash, msg + processed_bytes, digest, prev_digest);
+            COPY_DIGEST(digest, m->completed_digest);
+        } else {
+            current_state = _try_to_finalize(buffer_ptr, hash, msg + processed_bytes, bytes_to_read, digest, prev_digest, final_len);
+            if (current_state == STATE_NEW_COMPLETED_DIGEST) {
+                COPY_DIGEST(digest, m->completed_digest);
+            }
+        }
+        processed_bytes += bytes_to_read;
+        bytes_to_read = MIN(CHUNK_SIZE, len - processed_bytes);
+    }
+
+    COPY_DIGEST(digest, m->current_digest);
+    m->len = final_len;
 }

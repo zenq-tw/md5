@@ -2,10 +2,6 @@
 
 -- Testing MD5
 
-if string.find(_VERSION, "Lua 5.0") then
-	LUA_PATH = "?;?.lua;/usr/local/share/lua/5.0/?.lua"
-	string.gmatch = string.gfind
-end
 local md5 = require"md5"
 io.write (md5._VERSION..' '.._VERSION..'\n')
 
@@ -17,7 +13,7 @@ local function invert (s)
   return md5.exor(s, string.rep('\255', string.len(s)))
 end
 
-x = string.rep('0123456789', 1000)
+local x = string.rep('0123456789', 1000)
 assert(md5.exor(x,x) == string.rep('\0', 10000))
 assert(md5.exor(x,invert(x)) == string.rep('\255', 10000))
 
@@ -52,70 +48,3 @@ assert(md5.sumhexa(
    == "57edf4a22be3c955ac49da2e2107b67a")
 
 io.write '+'
-
-
-
-local tolerance = 1.12
-
-local function contchars (s)
-  local a = {}
-  for i=0,255 do a[string.char(i)] = 0 end
-  for c in string.gmatch(s, '.') do
-    a[c] = a[c] + 1
-  end
-  local av = string.len(s)/256
-  for i=0,255 do
-    local c = string.char(i)
-    assert(a[c] < av*tolerance and a[c] > av/tolerance, i)
-  end
-end
-
-
-local key = 'xuxu bacana'
-assert(md5.decrypt(md5.crypt('', key), key) == '')
-assert(md5.decrypt(md5.crypt('', key, '\0\0seed\0'), key) == '')
-assert(md5.decrypt(md5.crypt('a', key), key) == 'a')
-local msg = string.rep("1233456789\0\1\2\3\0\255", 10000)
-local code = md5.crypt(msg, key, "seed")
-assert(md5.decrypt(code, key) == msg)
-contchars(code)
-
-local seed = 'some_seed'
-assert(md5.crypt('a','a',seed) ~= md5.crypt('a','b',seed))
-
-io.write'+'
-
-
--- Testing DES 56
-local des56
-if string.find(_VERSION, "Lua 5.0") then
-	local cpath = os.getenv"LUA_CPATH" or "/usr/local/lib/lua/5.0/"
-	des56 = loadlib(cpath.."des56.so", "luaopen_des56")()
-else
-	des56 = require 'des56'
-end
-
-local key = '&3g4&gs*&3'
-
-assert(des56.decrypt(des56.crypt('', key), key) == '')
-assert(des56.decrypt(des56.crypt('', key), key) == '')
-assert(des56.decrypt(des56.crypt('a', key), key) == 'a')
-assert(des56.decrypt(des56.crypt('1234567890', key), key) == '1234567890')
-
-local msg = string.rep("1233456789\0\1\2\3\0\255", 10000)
-local code = des56.crypt(msg, key)
-
-assert(des56.decrypt(code, key) == msg)
-assert(des56.crypt('a', '12345678') ~= des56.crypt('a', '87654321'))
-
-local ascii = ""
-
-for i = 0, 255 do
-	ascii = ascii..string.char(i)
-end
-
-assert(des56.decrypt(des56.crypt(ascii, key), key) == ascii)
-key = string.sub(ascii, 2)
-assert(des56.decrypt(des56.crypt(ascii, key), key) == ascii)
-
-io.write'+\n'

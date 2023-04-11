@@ -1,0 +1,14 @@
+# Lua header files (.h) location
+LUA_INC= C:/lua/src
+# Lua library file (.dll) location
+LUA_DLL = C:/Alex/lua/5.1.5_float/lib/lua51.dll
+
+# Compilation directives
+COMPILER= gcc
+WARN= -O2 -fPIC -Wall -Wextra -Waggregate-return -Wcast-align -Wmissing-prototypes -Wnested-externs -Wshadow -Wwrite-strings -Wpointer-arith -Wno-sign-compare
+INCS= -I$(LUA_INC)
+
+CFLAGS= $(INCS) $(WARN)
+CFLAGS_TEST = -I./src $(CFLAGS) -Wno-missing-prototypes
+
+LINK_OPTIONS= -s -shared
