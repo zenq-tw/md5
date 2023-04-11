@@ -220,7 +220,7 @@ static inline void _update_hash_from_empty(UWORD32 *hash){
 static inline void _fill_buffer(TBuffer *buffer, const char *msg, int bytes_to_read) {
     memcpy(buffer->array + buffer->size, msg, bytes_to_read);               
     buffer->size += bytes_to_read;                                          
-    memset(buffer->array + buffer->size, 0, CHUNK_SIZE - bytes_to_read);
+    memset(buffer->array + buffer->size, 0, CHUNK_SIZE - buffer->size);
 }
 
 static inline void _clear_buffer(TBuffer *buffer){
