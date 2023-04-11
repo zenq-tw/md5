@@ -9,7 +9,7 @@
 #ifndef md5_h
 #define md5_h
 
-// #include <lua.h>
+#include <lua.h>
 #include <stddef.h>
 
 
@@ -55,7 +55,7 @@ void md5_ctx_update     (md5_ctx *m, const char *message, size_t len);
 void md5_ctx_finish     (md5_ctx *m, char output[HASH_SIZE]);
 void md5_calculate (const char *message, size_t len, char output[HASH_SIZE]);
 
-// LUALIB_API int luaopen_md5 (lua_State *L);
+LUALIB_API int luaopen_md5 (lua_State *L);
 
 
 #endif
