@@ -1,6 +1,6 @@
 ---@diagnostic disable: missing-return, unused-local
 
-
+---@class MD5Lib
 local md5 = {}
 
 ---Calculate MD5 checksum for provided `message`
