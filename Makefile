@@ -1,15 +1,29 @@
 include ./config.mk
 
 
-MD5_C = md5
-MD5_C_TEST = test_md5
 
-SOURCES= $(MD5_C) api
-DLL_NAME = md5.dll
+build: sources dll clean
+
+test:  sources dll test_c execute_api_test clean
 
 
-all: sources dll
+clean: clean_objects clean_exe
 	@echo done
+
+clean_all: clean_dll clean_objects clean_exe
+	@echo done
+
+# ----------------------------------------------
+
+sources: $(SOURCES)
+
+
+dll: 
+	@echo making "$(LIB_NAME).dll"...
+	@echo -------------
+	$(COMPILER) $(LINK_OPTIONS) -o build/$(LIB_NAME).dll $(SOURCES:%=build/%.o) $(LUA_DLL)
+	@echo =============
+
 
 $(SOURCES) :
 	@echo building "$@" source file...
@@ -17,13 +31,28 @@ $(SOURCES) :
 	$(COMPILER) -o build/$@.o -c src/$@.c $(CFLAGS)
 	@echo =============
 
-dll: 
-	@echo making "$(DLL_NAME)"...
-	@echo -------------
-	$(COMPILER) $(LINK_OPTIONS) -o build/$(DLL_NAME) $(SOURCES:%=build/%.o) $(LUA_DLL)
-	@echo =============
 
-make_c_test:
+# ----------------------------------------------
+
+
+clean_objects:
+	@for /f "delims=" %%a in ('dir /b build\') do if /i    	"%%~xa"==".o"		(del build\%%a)
+
+clean_exe: clean_objects
+	@for /f "delims=" %%a in ('dir /b build\') do if /i    	"%%~xa"==".exe"		(del build\%%a)
+
+clean_dll: clean_objects
+	@for /f "delims=" %%a in ('dir /b build\') do if /i		"%%~xa"==".dll"		(del build\%%a)
+
+
+# ----------------------------------------------
+
+
+test_c: make_md5c_test	execute_md5c_test
+test_api: build 		execute_api_test
+
+
+make_md5c_test:
 	@echo compiling C test for MD5...
 	@echo -------------
 	$(COMPILER) -o build/$(MD5_C).o  		-c src/$(MD5_C).c			$(CFLAGS)
@@ -31,11 +60,16 @@ make_c_test:
 	$(COMPILER) -o build/$(MD5_C_TEST).exe     build/$(MD5_C_TEST).o  	build/$(MD5_C).o 
 	@echo =============
 
-test_c: make_c_test
-	@echo executing "build/$(MD5_C_TEST).exe"...
+
+execute_md5c_test:
+	@echo executing "$(MD5_C_TEST).exe"...
 	@echo -------------
 	@./build/$(MD5_C_TEST).exe
 	@echo =============
 
-clean:
-	del -f $(MD5_OBJS) build/$(MD5_DLL)
+
+execute_api_test:
+	@echo executing "$(API_LUA_TEST)"...
+	@echo -------------
+	@cmd /C "set LUA_CPATH=build\?.dll&&$(LUA_INTERPRETER) tests/$(API_LUA_TEST)"
+	@echo =============
