@@ -4,7 +4,7 @@
 local md5 = {}
 
 ---Calculate MD5 checksum for provided `message`
----@param message string MD5 digest (hex)
+---@param message string
 ---@return string checksum MD5 digest (hex)
 function md5.calculate(message) end
 
