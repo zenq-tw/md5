@@ -3,10 +3,10 @@ LIB_NAME = md5
 # ---------------- LUA ------------------
 
 # Lua header files (.h) location
-LUA_INC= C:/lua/src
+LUA_INC= src/lua5.1_tw
 
 # Lua library file (.dll) location
-LUA_DLL = C:/Alex/lua/5.1.5_float/lib/lua51.dll
+LUA_DLL = src/lua5.1_tw/lua51.dll
 
 
 # -------- Compilation directives --------
@@ -23,7 +23,7 @@ LINK_OPTIONS= -s -shared
 # ---------- Test related stuff ----------
 
 CFLAGS_TEST = -I./src $(CFLAGS) -Wno-missing-prototypes
-LUA_INTERPRETER = C:/lua/lua.exe
+LUA_INTERPRETER = "src/lua5.1_tw/lua.exe"
 
 
 # ---------------- Files -----------------

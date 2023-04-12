@@ -2,9 +2,15 @@ include ./config.mk
 
 
 
-build: sources dll clean
+build: build_lua build_lib
 
-test:  sources dll test_c execute_api_test clean
+build_lib: lib_sources lib_dll clean
+
+build_lua:
+	$(MAKE) -C src/lua5.1_tw/
+	$(MAKE) -C src/lua5.1_tw/ clean
+
+test:  lib_sources lib_dll test_c execute_api_test clean
 
 
 clean: clean_objects clean_exe
@@ -15,10 +21,10 @@ clean_all: clean_dll clean_objects clean_exe
 
 # ----------------------------------------------
 
-sources: $(SOURCES)
+lib_sources: $(SOURCES)
 
 
-dll: 
+lib_dll: 
 	@echo making "$(LIB_NAME).dll"...
 	@echo -------------
 	$(COMPILER) $(LINK_OPTIONS) -o build/$(LIB_NAME).dll $(SOURCES:%=build/%.o) $(LUA_DLL)
