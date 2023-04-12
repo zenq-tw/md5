@@ -203,6 +203,14 @@ static inline void _put_length(UWORD32 *hash, long len) {
     curr[3]+=old[3];
 
 
+#define PRINT_DIGEST(d) \
+    printf("\\%u\\%u\\%u\\%u", d[0], d[1], d[2], d[3]);
+
+#define PRINT_HASH(h) \
+    printf("\\%u\\%u\\%u\\%u\\%u\\%u\\%u\\%u\\%u\\%u\\%u\\%u\\%u\\%u\\%u\\%u", h[0], h[1], h[2], h[3], h[4], h[5], h[6], h[7], h[8], h[9], h[10], h[11], h[12], h[13], h[14], h[15]);
+
+
+
 #define _add_byte(buffer) (buffer->array[buffer->size] = UNIQUENESS_BYTE)
 #define _add_byte2(buffer) (buffer.array[buffer.size] = UNIQUENESS_BYTE)
 
@@ -218,9 +226,23 @@ static inline void _update_hash_from_empty(UWORD32 *hash){
 
 
 static inline void _fill_buffer(TBuffer *buffer, const char *msg, int bytes_to_read) {
-    memcpy(buffer->array + buffer->size, msg, bytes_to_read);               
-    buffer->size += bytes_to_read;                                          
+    printf("1. buffer->array=%p; buffer->size=%d; bytes_to_read=%d; msg='%s'\n", buffer->array, buffer->size, bytes_to_read, msg);
+    printf("2. [buffer->array + buffer->size] = %p\n", (buffer->array + buffer->size));
+    printf("3. (before) buffer->array = '%s'\n", buffer->array);
+    
+    memcpy(buffer->array + buffer->size, msg, bytes_to_read);
+    
+    printf("4. (after)  buffer->array = '%s'\n", buffer->array);
+
+    buffer->size += bytes_to_read;
+
+    printf("5. buffer->size = %d; CHUNK_SIZE=%d\n", buffer->size, CHUNK_SIZE);
+    printf("6. [buffer->array + buffer->size] = %p\n", (buffer->array + buffer->size));
+    
     memset(buffer->array + buffer->size, 0, CHUNK_SIZE - buffer->size);
+
+    printf("7. (final)  buffer->array = '%s'\n", buffer->array);
+    printf("---------------------------------------------------------------------------------------------------------------\n");
 }
 
 static inline void _clear_buffer(TBuffer *buffer){
@@ -238,19 +260,58 @@ static inline void _update_digest(UWORD32 *hash, UWORD32 *digest, UWORD32 *prev_
 
 static inline void _finalize_1__with_overflow(TBuffer *buffer, UWORD32 *hash, UWORD32 *digest, UWORD32 *prev_digest, size_t final_len){
     _add_byte(buffer);                                                             
+
+    printf("buf->array (filed) = %.64s\n", buffer->array);
+
     _update_hash_from_buffer(hash, buffer);                                        
+
+    printf("x2: 1 hash=");
+    PRINT_HASH(hash);
+    printf(";\n");
+
     _update_digest(hash, digest, prev_digest);                                     
-                                                                                   
+
+    printf("x2: 1 digest=");
+    PRINT_DIGEST(digest);
+    printf("; prev_digest=");
+    PRINT_DIGEST(prev_digest);
+    printf(";\n");
+
     _update_hash_from_empty(hash);                                                 
-    _put_length(hash, final_len);                                                  
+    _put_length(hash, final_len);         
+
+    printf("x2: 2 hash=");
+    PRINT_HASH(hash);
+    printf(";\n");
+
     _update_digest(hash, digest, prev_digest);
+
+    printf("x2: 2 digest=");
+    PRINT_DIGEST(digest);
+    printf("; prev_digest=");
+    PRINT_DIGEST(prev_digest);
+    printf(";\n");
 }
 
 static inline void _finalize_2__inplace(TBuffer *buffer, UWORD32 *hash, UWORD32 *digest, UWORD32 *prev_digest, size_t final_len){
-    _add_byte(buffer);                                                       
-    _update_hash_from_buffer(hash, buffer);                                  
+    _add_byte(buffer);                                 
+    
+    printf("buf->array (filed) = %.64s\n", buffer->array);
+
+    _update_hash_from_buffer(hash, buffer);            
     _put_length(hash, final_len);                                            
+
+    printf("x3: hash=");
+    PRINT_HASH(hash);
+    printf(";\n");
+
     _update_digest(hash, digest, prev_digest);
+
+    printf("x3: digest=");
+    PRINT_DIGEST(digest);
+    printf("; prev_digest=");
+    PRINT_DIGEST(prev_digest);
+    printf(";\n");
 }
 
 
@@ -266,11 +327,21 @@ static inline void _finalize (TBuffer *buf, UWORD32 *hash, const char *msg, int 
 
 
 static inline TCalculationState _try_to_finalize (TBuffer *buf, UWORD32 *hash, const char *msg, int bytes_to_read, UWORD32 *d, UWORD32 *prev_d, size_t len) {
+    printf("msg (shifted) = \"%s\" (%lld)\n", msg, strlen(msg));
+    printf("- - - - - - - - - - - - - - - - - - - - -\n");
+    printf("buf.size=%d; final_len=%llu; bytes_to_read=%d;\ndigest=", buf->size, len, bytes_to_read);
+    PRINT_DIGEST(d);
+    printf("; prev_digest=");
+    PRINT_DIGEST(prev_d);
+    printf(";\nhash=");
+    PRINT_HASH(hash);
+    printf(";\n");
+
     _fill_buffer(buf, msg, bytes_to_read);
 
     if (LENGTH_WILL_FIT(buf)){
         _finalize_2__inplace(buf, hash, d, prev_d, len);
-        return STATE_COMPLETED;
+                return STATE_COMPLETED;
     }
 
     if (buf->size < CHUNK_SIZE){
@@ -278,8 +349,22 @@ static inline TCalculationState _try_to_finalize (TBuffer *buf, UWORD32 *hash, c
         return STATE_COMPLETED;
     }
 
+    printf("buf->array (filed) = %.64s\n", buf->array);
+
     _update_hash_from_buffer(hash, buf);
+            
+    printf("x1: hash=");
+    PRINT_HASH(hash);
+    printf(";\n");
+
     _update_digest(hash, d, prev_d);
+            
+    printf("x1: digest=");
+    PRINT_DIGEST(d);
+    printf("; prev_digest=");
+    PRINT_DIGEST(prev_d);
+    printf(";\n");
+            
     _clear_buffer(buf);
 
     return STATE_NEW_COMPLETED_DIGEST;
@@ -299,19 +384,26 @@ static inline void _read_full_chunk(UWORD32 *hash, const char *msg_ptr, UWORD32 
 
 
 
-
+    
 void md5_calculate (const char *msg, size_t len, char output[HASH_SIZE]) {
+    printf("\n\n\n\n");
+
     UWORD32 digest[4], prev_digest[4], hash[HASH_SIZE]; _init_digest(digest);
     size_t processed_bytes = 0;
     int bytes_to_read;
 
+    printf("msg=%s\n", msg);
+
     bytes_to_read = MIN(len, CHUNK_SIZE);
     while (bytes_to_read == CHUNK_SIZE) {
+        printf("-------------------------------------------------------------\n");
         _read_full_chunk(hash, msg + processed_bytes, digest, prev_digest);
         
         processed_bytes += bytes_to_read;
         bytes_to_read = MIN(len - processed_bytes, CHUNK_SIZE);
     }
+
+    printf("-------------------------------------------------------------\n");
 
     TBuffer buffer, *buffer_ptr = &buffer; buffer.size = 0;
     _finalize(buffer_ptr, hash, msg + processed_bytes, bytes_to_read, digest, prev_digest, len);
@@ -352,6 +444,8 @@ void md5_ctx_finish (md5_ctx *m, char output[HASH_SIZE]) {
 
 
 void md5_ctx_update(md5_ctx *m, const char *msg, size_t len) {
+    printf("=============================================================\n");
+
     TCalculationState current_state = STATE_NOT_READY;
 
     UWORD32 digest[4], prev_digest[4], hash[HASH_SIZE];
@@ -361,8 +455,10 @@ void md5_ctx_update(md5_ctx *m, const char *msg, size_t len) {
     size_t processed_bytes = 0, final_len = m->len + len;
     TBuffer *buffer_ptr = &m->buffer;
 
+    printf("message=%s; len=%lld\n", msg, len);
 
     while (current_state != STATE_COMPLETED) {
+        printf("-------------------------------------------------------------\n");
 
         if (bytes_to_read == CHUNK_SIZE) {
             _read_full_chunk(hash, msg + processed_bytes, digest, prev_digest);
@@ -370,11 +466,17 @@ void md5_ctx_update(md5_ctx *m, const char *msg, size_t len) {
         } else {
             current_state = _try_to_finalize(buffer_ptr, hash, msg + processed_bytes, bytes_to_read, digest, prev_digest, final_len);
             if (current_state == STATE_NEW_COMPLETED_DIGEST) {
+                printf("completedITER\n");
+
                 COPY_DIGEST(digest, m->completed_digest);
             }
         }
+        printf("  after (old): processed_bytes=%lld; bytes_to_read=%d\n", processed_bytes, bytes_to_read);
+
         processed_bytes += bytes_to_read;
         bytes_to_read = MIN(CHUNK_SIZE, len - processed_bytes);
+
+        printf("  after (new): processed_bytes=%lld; bytes_to_read=%d\n", processed_bytes, bytes_to_read);
     }
 
     COPY_DIGEST(digest, m->current_digest);
