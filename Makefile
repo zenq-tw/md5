@@ -63,16 +63,6 @@ execute_md5_test:
 	@echo =============
 
 
-embedded_lua: 
-	@echo creating Lua static library from Lua sources ...
-	@echo -------------
-	@$(MAKE) -C $(LUA_SRC) a
-	@echo -------------
-	@echo creating "$(TEST_API).$(EXEC_E)" with embedded Lua and exposed C API (like WH3 does)  ...
-	$(CC) -o build/$(TEST_API).$(EXEC_E) tests/$(TEST_EMBEDDED_LUA_SRC).c $(LUA_SRC)/liblua.a -I$(LUA_SRC) -Wl,--export-all-symbols
-	@echo =============
-
-
 execute_api_test:
 	@echo executing "$(TEST_API).lua" in embedded environment ...
 	@echo -------------
