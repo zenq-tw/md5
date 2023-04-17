@@ -78,6 +78,7 @@ Key differences from original (v1.2):
 2. Removed all non-digest related features
 3. Fixed iterative calculation of MD5 checksums (should work now)
 4. Provided `MD5Context` class in Lua to encapsulate iterative checksum calculations
+5. Embedded lua support
 
 ### Version 1.2 [06/Sep/2013]
 
