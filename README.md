@@ -50,7 +50,7 @@ print(checksum)       -- -> c9552f2ccf723bbb3957a423fc032494
 ## Build
 All Makefiles are configured for MinGW and only for Windows.
 
-After calling `build` you will find shared library `md5.dll` under path `build\md5.dll`.
+After calling `build` you will find shared library `md5.dll` and `md5_dll.lua` under path `build\md5.dll`.
 
 ```powershell
 mingw32-make.exe build
