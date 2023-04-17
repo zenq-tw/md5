@@ -69,6 +69,11 @@ mingw32-make.exe test
 
 ## History
 
+### Version 2.1.0 [18/Apr/2023] 
+
+* Pack created .dll file into .lua script
+
+
 ### Version 2.0.0 [14/Apr/2023] 
 
 Initial release of forked version. 

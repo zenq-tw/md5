@@ -7,4 +7,6 @@
 *.dll
 *.exe
 
+build/*.lua
+
 config.mk

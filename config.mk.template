@@ -6,8 +6,6 @@ LIB_NAME = md5
 EXEC_E = exe
  LIB_E = dll
 
-LIB_FILE = $(LIB_NAME).$(LIB_E)
-
 # ---------------- LUA ------------------
 
 # Lua header files (.h) location
@@ -54,3 +52,7 @@ TEST_API = api_test
 
 SOURCES= $(MD5_SRC) $(API_SRC)
 TEST_SOURCES= $(TEST_MD5_SRC)
+
+
+BIN_TO_LUA = bin_to_lua
+RESTORE_DLL = restore_dll
