@@ -69,7 +69,7 @@ mingw32-make.exe test
 
 ## History
 
-### Version 2.0.0 [11/Apr/2023] 
+### Version 2.0.0 [14/Apr/2023] 
 
 Initial release of forked version. 
 
