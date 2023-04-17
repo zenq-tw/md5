@@ -313,8 +313,10 @@ void md5_calculate (const char *msg, size_t len, char output[HASH_SIZE]) {
         bytes_to_read = MIN(len - processed_bytes, CHUNK_SIZE);
     }
 
-    TBuffer buffer, *buffer_ptr = &buffer; buffer.size = 0;
-    _finalize(buffer_ptr, hash, msg + processed_bytes, bytes_to_read, digest, prev_digest, len);
+    TBuffer buffer; memset(buffer.array, 0, 64);
+    buffer.size = 0;
+    
+    _finalize(&buffer, hash, msg + processed_bytes, bytes_to_read, digest, prev_digest, len);
 
     _word32tobytes(digest, output);
 }

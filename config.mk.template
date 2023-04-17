@@ -1,35 +1,56 @@
 LIB_NAME = md5
 
+
+# ---------------------------------------
+
+EXEC_E = exe
+ LIB_E = dll
+
+LIB_FILE = $(LIB_NAME).$(LIB_E)
+
 # ---------------- LUA ------------------
 
 # Lua header files (.h) location
-LUA_INC= src/lua5.1_tw
-
-# Lua library file (.dll) location
-LUA_DLL = src/lua5.1_tw/lua51.dll
+LUA_SRC= src/lua5.1_tw
 
 
-# -------- Compilation directives --------
+# --------- Compilation settings --------
 
-COMPILER= gcc
-WARN= -O2 -fPIC -Wall -Wextra -Waggregate-return -Wcast-align -Wmissing-prototypes -Wnested-externs -Wshadow -Wwrite-strings -Wpointer-arith -Wno-sign-compare
-INCS= -I$(LUA_INC)
+CC= gcc
 
-CFLAGS= $(INCS) $(WARN)
 
-LINK_OPTIONS= -s -shared
+COMPILER_OPTIONS= -Oz -fpic
+INCLUDE= -I$(LUA_SRC)
+
+WARN= -Wall -Wextra -Waggregate-return -Wcast-align -Wnested-externs -Wshadow -Wwrite-strings -Wpointer-arith -Wno-sign-compare
+ERR= -Werror=unknown-pragmas
+
+
+CFLAGS= $(INCLUDE)     $(COMPILER_OPTIONS)     $(WARN) -Wmissing-prototypes     $(ERR)
+
+
+# ----------- Linkage settings -----------
+
+LINK_OPTIONS= -s -shared -flto -flto-compression-level=19
+
+LDFLAGS= $(LINK_OPTIONS)     $(COMPILER_OPTIONS)
 
 
 # ---------- Test related stuff ----------
 
-CFLAGS_TEST = -I./src $(CFLAGS) -Wno-missing-prototypes
-LUA_INTERPRETER = "src/lua5.1_tw/lua.exe"
+CFLAGS_TEST = -I./src     $(CFLAGS) -Wno-missing-prototypes
 
 
 # ---------------- Files -----------------
 
-MD5_C = md5
-MD5_C_TEST = test_md5
-API_LUA_TEST = test_api.lua
+MD5_SRC = md5
+API_SRC = api
+LUA_PROXY = lua_proxy
 
-SOURCES= $(MD5_C) api
+TEST_MD5_SRC = md5_test
+TEST_EMBEDDED_LUA_SRC = embedded_lua
+
+TEST_API = api_test
+
+SOURCES= $(MD5_SRC) $(API_SRC)
+TEST_SOURCES= $(TEST_MD5_SRC)

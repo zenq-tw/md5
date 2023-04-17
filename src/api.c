@@ -6,11 +6,10 @@
  */
 
 
-#include <lua.h>
-#include <lauxlib.h>
-
+#include "lua_proxy.h"
 #include "md5.h"
 
+#define DllExport __declspec(dllexport)
 
 #define LIB_NAME "md5"
 #define TYPE_NAME "MD5Context"
@@ -24,15 +23,19 @@
 */
 static void luaL_setfuncs(lua_State *L, const luaL_Reg *l, int nup){
     luaL_checkstack(L, nup + 1, "too many upvalues");
+    
+    int i;
     for (; l->name != NULL; l++)
     { /* fill the table with given functions */
-        int i;
-        lua_pushstring(L, l->name);
+        lua_pushlstring(L, l->name, strlen(l->name));
+
         for (i = 0; i < nup; i++) /* copy upvalues to the top */
             lua_pushvalue(L, -(nup + 1));
+
         lua_pushcclosure(L, l->func, nup); /* closure with those upvalues */
         lua_settable(L, -(nup + 3));
     }
+
     lua_pop(L, nup); /* remove upvalues */
 }
 #endif
@@ -42,7 +45,7 @@ static void luaL_setfuncs(lua_State *L, const luaL_Reg *l, int nup){
 
 static inline void convert_hash_to_hex(char hash[16], char result[32]) {
     for (int i=0; i<16; i++){
-      sprintf((result + 2*i), "%02x", (unsigned char)hash[i]);
+      sprintf((result + 2*i), "%02x", (unsigned char) hash[i]);
     }
 }
 
@@ -58,7 +61,7 @@ static int calculate (lua_State *L) {
     const char *message = luaL_checklstring(L, 1, &l);
     md5_calculate(message, l, result);
 
-    char hex_hash[32];
+    char hex_hash[33];
     convert_hash_to_hex(result, hex_hash);
 
     lua_pushlstring(L, hex_hash, 32L);
@@ -86,6 +89,8 @@ static int ctx_update (lua_State *L) {
     const char *message = luaL_checklstring(L, 2, &l);
     md5_ctx_update(ctx_ptr, message, l);
 
+    lua_pushnil(L);
+
     return 1;
 }
 
@@ -96,7 +101,7 @@ static int ctx_calculate (lua_State *L) {
     char result[16];
     md5_ctx_finish(ctx_ptr, result);
 
-    char hex_hash[32];
+    char hex_hash[33];
     convert_hash_to_hex(result, hex_hash);
 
     lua_pushlstring(L, hex_hash, 32L);
@@ -108,15 +113,24 @@ static int ctx_calculate (lua_State *L) {
 static int ctx__tostring (lua_State *L) {
     md5_ctx *ctx_ptr = (md5_ctx*) luaL_checkudata(L, 1, TYPE_NAME);
 
-    char buff[32];
-    sprintf(buff, "%p", ctx_ptr);
+    char string_repr[50];
+    sprintf(string_repr, "%s (%p)", TYPE_NAME, ctx_ptr);
 
-    lua_pushfstring(L, "%s (%s)", TYPE_NAME, buff);
+    lua_pushlstring(L, string_repr, strlen(string_repr));
+
     return 1;
 }
 
 
-int luaopen_md5 (lua_State *L) {
+
+DllExport int __cdecl luaopen_md5 (lua_State *L) {    
+    int err_code = expose_lua_c_api();
+    if (err_code)
+        // NOTE:
+        // we cant call lua_error/luaL_error because we dont have a Lua C API functions at this moment,
+        // so its the callers responsibility to check for empty "require" results. 
+        return 0;
+
     lua_settop(L, 0);  // The user may pass in values here, but we'll ignore those values.
 
     if (luaL_newmetatable(L, TYPE_NAME)) {    // If this metatable already exists, the library is already loaded.

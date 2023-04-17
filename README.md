@@ -1,4 +1,4 @@
-# MD5 - Digest Library for Lua 5.1
+# TW MD5 - Digest Library for TW Embedded Lua
 
 > Original repo: https://lunarmodules.github.io/md5/
 
@@ -6,12 +6,25 @@ Library offers basic digest facilities for Lua 5.1.
 
 Version of MD5 is 1.3.
 
-Original version modified by me to add MD5 checksum calculation for use in TW: WH3 mods. Improved usability and removed all irrelevant features.
+Original version modified by me to add MD5 checksum calculation for use in TW: WH3 mods. 
+
+List of changes:
+  * Improved usability
+  * Removed all irrelevant features
+  * A small amount of optimizations (should be)
+  * Implemented DLL proxying to support statically linked (embedded) Lua in a host process (WH3)
+  * A little more tests)
 
 ## Usage
 
 ```lua
 md5 = require('md5')    -- md5.dll must be under your LUA_CPATH
+
+--    !!! WARNING !!!
+-- We have to link to embedded Lua C Api ourselves at runtime, because CA didnt give us access to lua.dll and instead linked Lua statically.
+--  => we cant raise error if module initialization fails (no access to lua_error/luaL_error functions)
+assert(type(md5) == 'table', 'Failed to load md5 module (troubles with Lua C API linkage?)')  
+
 
 checksum = md5.calculate('some string')
 print(checksum)         -- -> 5ac749fbeec93607fc28d666be85e73a
@@ -37,7 +50,7 @@ print(checksum)       -- -> c9552f2ccf723bbb3957a423fc032494
 ## Build
 All Makefiles are configured for MinGW (and obviously only for Windows).
 
-When you call `build` target, compiler will build lua sources from `src/lua5.1_tw` and the library files. After that you will find `md5.dll` under path `build\md5.dll`.
+After calling `build` you will find shared library `md5.dll` under path `build\md5.dll`.
 
 ```powershell
 mingw32-make.exe build
@@ -50,9 +63,9 @@ You can test the built library by calling `test`.
 mingw32-make.exe test
 ```
 
+## Future plans
+* Try to compile with native Windows compiler - this should reduce .dll file and eliminate dependency on MSVCRT (static linkage)
 
-
-> **Note:** To create the `md5.dll` file, we need `lua51.dll` and the source header files. I don't know how to get them from the game (haha), so I tried to build new ones from the default Lua sources. Therefore, the library comes with modified Lua5.1.5 sources that will need to be built before building the library itself. The only change in the source codes is that the lua type `number` is defined as `float` instead of `double` to be closer to Lua shipped with game.
 
 ## History
 

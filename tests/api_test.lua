@@ -1,4 +1,6 @@
-local md5 = require("md5")
+local md5 = require('md5')
+assert(type(md5) == "table", ("Failed to load md5 module (troubles with Lua C API linkage?). Retval from require: '%s' (type: %s); should be <table>"):format(tostring(md5), type(md5)))
+
 
 --================================================================================================================================================
 

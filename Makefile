@@ -2,80 +2,106 @@ include ./config.mk
 
 
 
-build: build_lua build_lib
+build: sources lib clean_objs
 
-build_lib: lib_sources lib_dll clean
-
-build_lua:
-	$(MAKE) -C src/lua5.1_tw/
-	$(MAKE) -C src/lua5.1_tw/ clean
-
-test:  lib_sources lib_dll test_c execute_api_test clean
-
-
-clean: clean_objects clean_exe
-	@echo done
-
-clean_all: clean_dll clean_objects clean_exe
-	@echo done
 
 # ----------------------------------------------
 
-lib_sources: $(SOURCES)
+
+test: 		$(TEST_SOURCES)		sources lib 	md5_test_exec 	embedded_lua 	execute_md5_test 	execute_api_test	clean_all
+
+test_api: 						sources lib 					embedded_lua						execute_api_test	clean_all
+test_md5: 	$(TEST_MD5_SRC)						md5_test_exec					execute_md5_test						clean
 
 
-lib_dll: 
-	@echo making "$(LIB_NAME).dll"...
+
+clean: 		clean_objs 	clean_exec 				echo_done
+clean_all: 	clean_objs 	clean_exec	clean_lib	echo_done
+
+
+# ----------------------------------------------
+
+
+sources: $(MD5_SRC) $(API_SRC) $(LUA_PROXY)
+
+
+lib: 
+	@echo building "$(LIB_FILE)"...
 	@echo -------------
-	$(COMPILER) $(LINK_OPTIONS) -o build/$(LIB_NAME).dll $(SOURCES:%=build/%.o) $(LUA_DLL)
-	@echo =============
-
-
-$(SOURCES) :
-	@echo building "$@" source file...
-	@echo -------------
-	$(COMPILER) -o build/$@.o -c src/$@.c $(CFLAGS)
+	$(CC) -o build/$(LIB_FILE)     $(SOURCES:%=build/%.o) build/$(LUA_PROXY).o     $(LDFLAGS)
 	@echo =============
 
 
 # ----------------------------------------------
 
+# TODO: replace with portable solution?
 
-clean_objects:
-	@for /f "delims=" %%a in ('dir /b build\') do if /i    	"%%~xa"==".o"		(del build\%%a)
+clean_objs:
+	@for /f "delims=" %%a in ('dir /b build\') do if /i    	"%%~xa"==".o"			(del build\%%a)
 
-clean_exe: clean_objects
-	@for /f "delims=" %%a in ('dir /b build\') do if /i    	"%%~xa"==".exe"		(del build\%%a)
+clean_exec:
+	@for /f "delims=" %%a in ('dir /b build\') do if /i    	"%%~xa"==".$(EXEC_E)"	(del build\%%a)
 
-clean_dll: clean_objects
-	@for /f "delims=" %%a in ('dir /b build\') do if /i		"%%~xa"==".dll"		(del build\%%a)
+clean_lib:
+	@for /f "delims=" %%a in ('dir /b build\') do if /i		"%%~xa"==".$(LIB_E)"	(del build\%%a)
 
 
 # ----------------------------------------------
 
 
-test_c: make_md5c_test	execute_md5c_test
-test_api: build 		execute_api_test
-
-
-make_md5c_test:
+md5_test_exec:
 	@echo compiling C test for MD5...
 	@echo -------------
-	$(COMPILER) -o build/$(MD5_C).o  		-c src/$(MD5_C).c			$(CFLAGS)
-	$(COMPILER) -o build/$(MD5_C_TEST).o 	-c tests/$(MD5_C_TEST).c  	$(CFLAGS_TEST)
-	$(COMPILER) -o build/$(MD5_C_TEST).exe     build/$(MD5_C_TEST).o  	build/$(MD5_C).o 
+	$(CC) -o build/$(TEST_MD5_SRC).$(EXEC_E)     build/$(MD5_SRC).o  	build/$(TEST_MD5_SRC).o
 	@echo =============
 
 
-execute_md5c_test:
-	@echo executing "$(MD5_C_TEST).exe"...
+execute_md5_test:
+	@echo executing "$(TEST_MD5_SRC).$(EXEC_E)"...
 	@echo -------------
-	@./build/$(MD5_C_TEST).exe
+	@./build/$(TEST_MD5_SRC).$(EXEC_E)
+	@echo =============
+
+
+embedded_lua: 
+	@echo creating Lua static library from Lua sources ...
+	@echo -------------
+	@$(MAKE) -C $(LUA_SRC) a
+	@echo -------------
+	@echo creating "$(TEST_API).$(EXEC_E)" with embedded Lua and exposed C API (like WH3 does)  ...
+	$(CC) -o build/$(TEST_API).$(EXEC_E) tests/$(TEST_EMBEDDED_LUA_SRC).c $(LUA_SRC)/liblua.a -I$(LUA_SRC) -Wl,--export-all-symbols
 	@echo =============
 
 
 execute_api_test:
-	@echo executing "$(API_LUA_TEST)"...
+	@echo executing "$(TEST_API).lua" in embedded environment ...
 	@echo -------------
-	@cmd /C "set LUA_CPATH=build\?.dll&&$(LUA_INTERPRETER) tests/$(API_LUA_TEST)"
+	@cmd /C "set LUA_CPATH=build\?.dll&&.\build\$(TEST_API).exe tests/$(TEST_API).lua"
 	@echo =============
+
+
+# ----------------------------------------------
+
+
+$(SOURCES) :
+	@echo compiling "$@" source file...
+	@echo -------------
+	$(CC) -o build/$@.o     -c src/$@.c     $(CFLAGS)
+	@echo =============
+
+$(TEST_SOURCES) :
+	@echo compiling "$@" test source file...
+	@echo -------------
+	$(CC) -o build/$@.o     -c tests/$@.c     $(CFLAGS_TEST)
+	@echo =============
+
+
+$(LUA_PROXY) :
+	@echo compiling "$@" source file...
+	@echo -------------
+	$(CC) -o build/$@.o     -c src/$@.c     $(CFLAGS)     -Wno-cast-function-type -Wno-incompatible-pointer-types -Wno-missing-prototypes
+	@echo =============
+
+
+echo_done:
+	@echo done
